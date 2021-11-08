@@ -4,17 +4,17 @@ Author: Jacky Liang
 '''
 
 from multiprocessing import Process, Queue
-from Queue import Empty
+from queue import Empty
 import socket
 import sys
 from collections import namedtuple
 import logging
 from time import sleep
 from setproctitle import setproctitle
-from yumi_constants import YuMiConstants as YMC
-from yumi_state import YuMiState
-from yumi_exceptions import YuMiCommException
-from yumi_util import message_to_state, message_to_pose, message_to_torques
+from .yumi_constants import YuMiConstants as YMC
+from .yumi_state import YuMiState
+from .yumi_exceptions import YuMiCommException
+from .yumi_util import message_to_state, message_to_pose, message_to_torques
 
 _RAW_RES = namedtuple('_RAW_RES', 'time message')
 
@@ -52,7 +52,7 @@ class _YuMiSubscriberEthernet(Process):
                     raw_res = None
                     try:
                         raw_res = self._socket.recv(self._bufsize)
-                    except socket.error, e:
+                    except socket.error as e:
                         if e.errno == 114: # request time out
                             raise YuMiCommException('Request timed out')
 

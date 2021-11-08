@@ -4,7 +4,7 @@ Author: Jacky Liang
 '''
 
 from multiprocessing import Process, Queue
-from Queue import Empty
+from queue import Empty
 import logging
 import socket
 import sys
@@ -13,12 +13,12 @@ from time import sleep, time
 from collections import namedtuple
 import numpy as np
 from autolab_core import RigidTransform
-from yumi_constants import YuMiConstants as YMC
-from yumi_state import YuMiState
-from yumi_motion_logger import YuMiMotionLogger
-from yumi_util import message_to_state, message_to_pose
-from yumi_exceptions import YuMiCommException,YuMiControlException
-from yumi_planner import YuMiMotionPlanner
+from .yumi_constants import YuMiConstants as YMC
+from .yumi_state import YuMiState
+from .yumi_motion_logger import YuMiMotionLogger
+from .yumi_util import message_to_state, message_to_pose
+from .yumi_exceptions import YuMiCommException,YuMiControlException
+from .yumi_planner import YuMiMotionPlanner
 import pickle
 
 # Check if ROS and the service file can be imported
@@ -50,7 +50,6 @@ class _YuMiEthernet(Process):
         self._timeout = timeout
         self._bufsize = bufsize
         self._socket = None
-
         self._req_q = req_q
         self._res_q = res_q
 
@@ -99,6 +98,7 @@ class _YuMiEthernet(Process):
         logging.debug('Socket successfully opened!')
 
     def _send_request(self, req_packet):
+
         logging.debug("Sending: {0}".format(req_packet))
         raw_res = None
 
@@ -109,15 +109,15 @@ class _YuMiEthernet(Process):
 
             while True:
                 try:
-                    self._socket.send(req_packet.req)
+                    self._socket.send(bytes(req_packet.req, 'utf-8') )
                     break
-                except socket.error, e:
+                except socket.error as e:
                     # TODO: better way to handle this mysterious bad file descriptor error
                     if e.errno == 9:
                         self._reset_socket()
             try:
                 raw_res = self._socket.recv(self._bufsize)
-            except socket.error, e:
+            except socket.error as e:
                 if e.errno == 114: # request time out
                     raise YuMiCommException('Request timed out: {0}'.format(req_packet))
 
@@ -126,7 +126,7 @@ class _YuMiEthernet(Process):
         if raw_res is None or len(raw_res) == 0:
             raise YuMiCommException('Empty response! For req: {0}'.format(req_packet))
 
-        tokens = raw_res.split()
+        tokens = str(raw_res, 'utf-8').split()
         res = _RAW_RES(int(tokens[0]), int(tokens[1]), ' '.join(tokens[2:]))
         return res
 
@@ -685,7 +685,7 @@ class YuMiArm:
             Defaults to True
 
         Returns
-        -------
+        -------timeout
         None if wait_for_res is False
         namedtuple('_RAW_RES', 'mirror_code res_code message') otherwise
 
@@ -864,7 +864,7 @@ class YuMiArm:
                     return _RES(res, size)
                 else:
                     return size
-            except Exception, e:
+            except Exception as e:
                 logging.error(e)
 
     def buffer_move(self, wait_for_res=True):
@@ -946,7 +946,7 @@ class YuMiArm:
         '''
         if force < 0 or force > YMC.MAX_GRIPPER_FORCE:
             raise ValueError("Gripper force can only be between {} and {}. Got {}.".format(0, YMC.MAX_GRIPPER_FORCE, force))
-        if width < 0 or width > YMC>MAX_GRIPPER_WIDTH:
+        if (width < 0) or (width > YMC.MAX_GRIPPER_WIDTH):
             raise ValueError("Gripper width can only be between {} and {}. Got {}.".format(0, YMC.MAX_GRIPPER_WIDTH, width))
 
         width = METERS_TO_MM * width
@@ -1180,7 +1180,7 @@ class YuMiArm_ROS:
                     kwargs['wait_for_res'] = True
                 try:
                     response = arm(pickle.dumps(name), pickle.dumps(args), pickle.dumps(kwargs))
-                except rospy.ServiceException, e:
+                except rospy.ServiceException as e:
                     raise RuntimeError("Service call failed: {0}".format(str(e)))
                 return pickle.loads(response.ret)
             return handle_remote_call
@@ -1189,7 +1189,7 @@ class YuMiArm_ROS:
             arm = rospy.ServiceProxy(self.arm_service, ROSYumiArm)
             try:
                 response = arm(pickle.dumps('__getattribute__'), pickle.dumps(name), pickle.dumps(None))
-            except rospy.ServiceException, e:
+            except rospy.ServiceException as e:
                 raise RuntimeError("Could not get attribute: {0}".format(str(e)))
             return pickle.loads(response.ret)
 

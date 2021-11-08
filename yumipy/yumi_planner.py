@@ -14,9 +14,9 @@ except ImportError:
     logging.error("Unable to load ROS! Will not be able to use client-side motion planner!")
 
 from autolab_core import RigidTransform
-from yumi_state import YuMiState
-from yumi_trajectory import YuMiTrajectory
-from yumi_constants import YuMiConstants as ymc
+from .yumi_state import YuMiState
+from .yumi_trajectory import YuMiTrajectory
+from .yumi_constants import YuMiConstants as ymc
 
 class YuMiMotionPlanner:
     """ Client-side motion planner for the ABB YuMi, based on MoveIt!

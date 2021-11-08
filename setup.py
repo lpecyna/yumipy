@@ -11,8 +11,6 @@ requirements = [
     'multiprocess',
     'setproctitle',
     'ipython==5.5.0',
-    'rospkg',
-    'catkin_pkg',
     'empy',
     'pyassimp'
 ]

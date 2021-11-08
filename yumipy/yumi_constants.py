@@ -3,7 +3,7 @@ Constants for YuMi interface and control
 Author: Jacky Liang
 '''
 import logging
-from yumi_state import YuMiState
+from .yumi_state import YuMiState
 from autolab_core import RigidTransform
 
 class YuMiConstants:
