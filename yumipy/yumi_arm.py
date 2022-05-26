@@ -508,6 +508,57 @@ class YuMiArm:
         req = YuMiArm._construct_req('goto_joints_sync', body)
         return self._request(req, wait_for_res, timeout=self._motion_timeout)
 
+    def delta_arm_orient(self, angle, wait_for_res=True):
+        '''Commands the YuMi to change the angle of the arm without moving the end effector,
+        moving by a relative angle value
+
+        Parameters
+        ----------
+        angle : change of the arm angle
+        wait_for_res : bool, optional
+            If True, will block main process until response received from RAPID server.
+            Defaults to True
+
+        Returns
+        -------
+        None if wait_for_res is False
+        namedtuple('_RAW_RES', 'mirror_code res_code message') if pose logging is not enabled and wait_for_res is False
+
+        {
+            'time': <flaot>,
+            'pose': <RigidTransform>,
+            'res': <namedtuple('_RAW_RES', 'mirror_code res_code message')>
+        } otherwise. The time field indicates the duration it took for the arm to complete the motion.
+
+        Raises
+        ------
+        YuMiCommException
+            If communication times out or socket error.
+        YuMiControlException
+            If commanded pose triggers any motion errors that are catchable by RAPID sever.
+        '''
+        body = YuMiArm._iter_to_str('{0:.1f}', [angle])
+        cmd = 'delta_arm_orient'
+        req = YuMiArm._construct_req(cmd, body)
+        res = self._request(req, wait_for_res, timeout=self._motion_timeout)
+
+        if hasattr(self, '_pose_logger') and wait_for_res and res is not None:
+            if self._debug:
+                time = -1.
+            else:
+                time = float(res.message)
+            actual_pose = self.get_pose()
+            self._pose_logger.append_time(time)
+            self._pose_logger.append_expected(angle)
+            self._pose_logger.append_actual(actual_pose)
+            return {
+                'time': time,
+                'pose': actual_pose,
+                'res': res
+            }
+
+        return res
+
     def goto_pose(self, pose, linear=True, relative=False, wait_for_res=True):
         '''Commands the YuMi to goto the given pose
 

@@ -36,6 +36,7 @@ MODULE SERVER_R
 
     !//External axis position variables
     VAR extjoint externalAxis;
+    VAR extjoint cartExternalAxis;
 
     !//Circular move buffer
     VAR robtarget circPoint;
@@ -51,7 +52,7 @@ MODULE SERVER_R
     PERS tasks tasklistArms{2}:=[["T_ROB_L"],["T_ROB_R"]];
     VAR syncident Sync_Start_Arms;
     VAR syncident Sync_Stop_Arms;
-    CONST confdata R_CONF := [0,0,0,3];
+    !CONST confdata R_CONF := [1,-2,0,4];
     
     !/////////////////////////////////////////////////////////////////////////////////////////////////////////
     !LOCAL METHODS
@@ -164,6 +165,7 @@ MODULE SERVER_R
         !Find the current external axis values so they don't move when we start
         jointsTarget:=CJointT();
         externalAxis:=jointsTarget.extax;
+        
     ENDPROC
 
     FUNC string FormateRes(string clientMessage)
@@ -242,10 +244,11 @@ MODULE SERVER_R
             CASE 1:
                 !Cartesian Move
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                        [params{4},params{5},params{6},params{7}],
-                                       R_CONF,
-                                       externalAxis];
+                                       cartesianPose.robconf,
+                                       cartesianPose.extax];
                     IF isPoseReachable(cartesianTarget, currentTool, currentWobj) THEN
                         ok:=SERVER_OK;
                         moveCompleted:=FALSE;
@@ -323,10 +326,11 @@ MODULE SERVER_R
             CASE 5:
                 !Cartesian Move, nonlinear movement
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                        [params{4},params{5},params{6},params{7}],
-                                       R_CONF,
-                                       externalAxis];
+                                       cartesianPose.robconf,
+                                       cartesianPose.extax];
                     IF isPoseReachable(cartesianTarget, currentTool, currentWobj) THEN
                         ok:=SERVER_OK;
                         moveCompleted:=FALSE;
@@ -412,10 +416,11 @@ MODULE SERVER_R
             CASE 11:
                 !Cartesian Move (synchronized)
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                        [params{4},params{5},params{6},params{7}],
-                                       R_CONF,
-                                       externalAxis];
+                                       cartesianPose.robconf,
+                                       cartesianPose.extax];
                     IF isPoseReachable(cartesianTarget, currentTool, currentWobj) THEN
                         ok:=SERVER_OK;
                         moveCompleted:=FALSE;
@@ -482,33 +487,60 @@ MODULE SERVER_R
                     ok:=SERVER_BAD_MSG;
                 ENDIF
                 !---------------------------------------------------------------------------------------------------------------
-
             CASE 14:
                 !ContactL //NOTE: NOT IMPLEMENTED ON PYTHON
                 ! Desired Torque Stated
                 IF nParams=8 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                        [params{4},params{5},params{6},params{7}],
-                                       R_CONF,
-                                       externalAxis];
+                                       cartesianPose.robconf,
+                                       cartesianPose.extax];
                     ok:=SERVER_OK;
                     ContactL\DesiredTorque:=params{8},cartesianTarget,v100,\Zone:=currentZone,currentTool,\WObj:=currentWobj;
 
                     ! Desired Torque Not Stated
                     ! Instruction will only raise the collision detection level and not supervise the internal torque level
                 ELSEIF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                        [params{4},params{5},params{6},params{7}],
-                                       R_CONF,
-                                       externalAxis];
+                                       cartesianPose.robconf,
+                                       cartesianPose.extax];
                     ok:=SERVER_OK;
                     ContactL cartesianTarget,v100,\Zone:=currentZone,currentTool,\WObj:=currentWobj;
                 ELSE
                     ok:=SERVER_BAD_MSG;
                 ENDIF
-
                 !---------------------------------------------------------------------------------------------------------------
-
+            CASE 15:
+                !Change (relataviely by given angle) arm orientation - cartesian exteranl axes value, using Cartesian Move
+                IF nParams=1 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
+                    cartExternalAxis:=cartesianPose.extax;
+                    cartExternalAxis.eax_a := cartExternalAxis.eax_a + params{1};
+                    cartesianTarget:=[cartesianPose.trans,
+                                       cartesianPose.rot,
+                                       cartesianPose.robconf,
+                                       cartExternalAxis];
+                    IF isPoseReachable(cartesianTarget, currentTool, currentWobj) THEN
+                        ok:=SERVER_OK;
+                        moveCompleted:=FALSE;
+                        ClkReset clock1;
+                        ClkStart clock1;
+                        MoveL cartesianTarget,currentSpeed,currentZone,currentTool\WObj:=currentWobj;
+                        ClkStop clock1;
+                        reg1:=ClkRead(clock1);
+                        addString:=NumToStr(reg1,5);
+                        moveCompleted:=TRUE;
+                    ELSE
+                        ok := SERVER_BAD_MSG;
+                        addString := "Unreachable Pose";
+                    ENDIF
+                ELSE
+                    ok:=SERVER_BAD_MSG;
+                ENDIF
+                !---------------------------------------------------------------------------------------------------------------
             CASE 20:
                 !Gripper Close
                 IF nParams=0 THEN
@@ -629,10 +661,11 @@ MODULE SERVER_R
             CASE 30:
                 !Add Cartesian Coordinates to buffer
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                         [params{4},params{5},params{6},params{7}],
-                                        R_CONF,
-                                        externalAxis];
+                                        cartesianPose.robconf,
+                                        cartesianPose.extax];
                     IF isPoseReachable(cartesianTarget, currentTool, currentWobj) THEN
                         IF BUFFER_POS<MAX_BUFFER THEN
                             BUFFER_POS:=BUFFER_POS+1;
@@ -695,10 +728,11 @@ MODULE SERVER_R
             CASE 35:
                 !Specify circPoint for circular move, and then wait on toPoint
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     circPoint:=[[params{1},params{2},params{3}],
                                 [params{4},params{5},params{6},params{7}],
-                                R_CONF,
-                                externalAxis];
+                                cartesianPose.robconf,
+                                cartesianPose.extax];
                     ok:=SERVER_OK;
                 ELSE
                     ok:=SERVER_BAD_MSG;
@@ -707,10 +741,11 @@ MODULE SERVER_R
             CASE 36:
                 !specify toPoint, and use circPoint specified previously
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget:=[[params{1},params{2},params{3}],
                                         [params{4},params{5},params{6},params{7}],
-                                        R_CONF,
-                                        externalAxis];
+                                        cartesianPose.robconf,
+                                        cartesianPose.extax];
                     MoveC circPoint,cartesianTarget,currentSpeed,currentZone,currentTool\WObj:=currentWobj;
                     ok:=SERVER_OK;
                 ELSE
@@ -720,10 +755,11 @@ MODULE SERVER_R
             CASE 40:
                 !returns 1 if given pose is reachable. 0 other wise.
                 IF nParams=7 THEN
+                    cartesianPose:=CRobT(\Tool:=currentTool\WObj:=currentWObj);
                     cartesianTarget := [[params{1},params{2},params{3}],
                                        [params{4},params{5},params{6},params{7}],
-                                       R_CONF,
-                                       externalAxis];
+                                       cartesianPose.robconf,
+                                       cartesianPose.extax];
                     IF isPoseReachable(cartesianTarget, currentTool, currentWobj) THEN
                         addString := "1";
                     ELSE

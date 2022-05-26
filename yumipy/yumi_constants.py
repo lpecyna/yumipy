@@ -61,6 +61,7 @@ class YuMiConstants:
         'goto_pose_sync':11,
         'goto_joints_sync':12,
         'goto_pose_delta':13,
+        'delta_arm_orient':15,
         
         'close_gripper': 20,
         'open_gripper': 21,
