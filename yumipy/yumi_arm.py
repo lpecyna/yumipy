@@ -9,7 +9,7 @@ import logging
 import socket
 import sys
 import os
-from time import sleep, time
+from time import sleep, time, gmtime, strftime
 from collections import namedtuple
 import numpy as np
 from autolab_core import RigidTransform
@@ -102,6 +102,10 @@ class _YuMiEthernet(Process):
         logging.debug("Sending: {0}".format(req_packet))
         raw_res = None
 
+        #print("Checking what sending:")
+        #print(req_packet)
+        #print(self._debug)
+
         if self._debug:
             raw_res = '-1 1 MOCK RES for {0}'.format(req_packet)
         else:
@@ -110,19 +114,27 @@ class _YuMiEthernet(Process):
             while True:
                 try:
                     self._socket.send(bytes(req_packet.req, 'utf-8') )
+                    #print(strftime("Send: %Y-%m-%d %H:%M:%S", gmtime()))
                     break
                 except socket.error as e:
                     # TODO: better way to handle this mysterious bad file descriptor error
                     if e.errno == 9:
                         self._reset_socket()
             try:
+                #print(strftime("Try recieve: %Y-%m-%d %H:%M:%S", gmtime()))
                 raw_res = self._socket.recv(self._bufsize)
+                #if req_packet.return_res:
+                #    raw_res = self._socket.recv(self._bufsize)
+                #else:
+                #    raw_res = bytes('13 1 ', 'utf-8')
+                #print("print result:")
+                #print(raw_res)
             except socket.error as e:
                 if e.errno == 114: # request time out
                     raise YuMiCommException('Request timed out: {0}'.format(req_packet))
 
         logging.debug("Received: {0}".format(raw_res))
-
+        #print(strftime("Outside: %Y-%m-%d %H:%M:%S", gmtime()))
         if raw_res is None or len(raw_res) == 0:
             raise YuMiCommException('Empty response! For req: {0}'.format(req_packet))
 
@@ -184,9 +196,9 @@ class YuMiArm:
                     If given, will use for planning trajectories in joint space.
                     Defaults to None
         '''
-        self._motion_timeout = motion_timeout
+        self._motion_timeout = 25#motion_timeout
         self._comm_timeout = comm_timeout
-        self._process_timeout = process_timeout
+        self._process_timeout = 30#process_timeout
         self._ip = ip
         self._port = port
         self._bufsize = bufsize
